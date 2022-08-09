@@ -1,14 +1,29 @@
 package com.techbooker.sm.util;
 
+import com.sun.codemodel.JCodeModel;
 import lombok.AccessLevel;
 import lombok.NoArgsConstructor;
 
+import java.io.File;
+import java.io.IOException;
 import java.time.Duration;
 import java.time.LocalDateTime;
 import java.util.Random;
 import java.util.regex.Matcher;
 import java.util.regex.Pattern;
 
+import lombok.extern.slf4j.Slf4j;
+import org.jsonschema2pojo.DefaultGenerationConfig;
+import org.jsonschema2pojo.GenerationConfig;
+import org.jsonschema2pojo.Jackson2Annotator;
+import org.jsonschema2pojo.SchemaGenerator;
+import org.jsonschema2pojo.SchemaMapper;
+import org.jsonschema2pojo.SchemaStore;
+import org.jsonschema2pojo.SourceType;
+import org.jsonschema2pojo.rules.RuleFactory;
+
+
+@Slf4j
 @NoArgsConstructor(access = AccessLevel.PRIVATE)
 public class CommonUtil {
     private static final Random RANDOM = new Random();
@@ -80,5 +95,28 @@ public class CommonUtil {
         long least12SignificatBitOfTime = (timeForUuidIn100Nanos & 0x000000000000FFFFL) >> 4;
         long version = 1 << 12;
         return (timeForUuidIn100Nanos & 0xFFFFFFFFFFFF0000L) + version + least12SignificatBitOfTime;
+    }
+
+    public static void convertJsonToPojoClass(String json, String packageName, String javaClassName, File outputPojoDirectory) {
+        GenerationConfig config = new DefaultGenerationConfig() {
+            @Override
+            public boolean isGenerateBuilders() {
+                return true;
+            }
+
+            @Override
+            public SourceType getSourceType() {
+                return SourceType.JSON;
+            }
+        };
+
+        SchemaMapper mapper = new SchemaMapper(new RuleFactory(config, new Jackson2Annotator(config), new SchemaStore()), new SchemaGenerator());
+        try {
+            JCodeModel jcodeModel = new JCodeModel();
+            mapper.generate(jcodeModel, javaClassName, packageName, json);
+            jcodeModel.build(outputPojoDirectory);
+        } catch (IOException ioe) {
+            log.error("Encountered issue while converting to pojo: {}", ioe.getMessage());
+        }
     }
 }
